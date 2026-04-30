@@ -907,6 +907,7 @@
   // ─── WINDOW MANAGER ──────────────────────────────────────────────────────────
   const WindowManager = {
     init(app) {
+      if (!app.panels) app.panels = new Map();
       this.createTray(app);
       this.createMasterPanel(app);
     },
@@ -921,7 +922,7 @@
     },
 
     createMasterPanel(app) {
-      this.createBuiltinPanel(app, {
+      this.createPanel(app, {
         id: `${CONFIG.appId}-manager`,
         icon: "🧩",
         title: CONFIG.title,
@@ -931,7 +932,7 @@
     },
 
     createModulePanel(app, module) {
-      this.createBuiltinPanel(app, {
+      this.createPanel(app, {
         id: module.id,
         icon: module.icon,
         title: module.name,
@@ -1091,6 +1092,37 @@
       panel.style.right = `${state.right}px`;
       panel.style.bottom = `${state.bottom}px`;
       panel.classList.toggle("vim-open", isPanelOpen(app, id));
+    },
+
+    // createPanel — internal DOM builder. Creates the panel element, registers it
+    // in app.panels, and attaches drag/resize behaviour. Called by createModulePanel
+    // and createMasterPanel. Never call createBuiltinPanel from here.
+    createPanel(app, { id, icon, title, bodyHtml, footer }) {
+      if (app.panels.has(id)) return;
+
+      const panel = document.createElement("div");
+      panel.className = "vim-panel";
+      panel.id = id;
+      panel.innerHTML = `
+        <div class="vim-header">
+          <span class="vim-title">${escapeHtml(icon)} ${escapeHtml(title)}</span>
+          <div class="vim-actions">
+            <button type="button" class="vim-btn" data-action="hide-panel">✕</button>
+          </div>
+        </div>
+        <div class="vim-body">${bodyHtml || ""}</div>
+        <div class="vim-footer">${escapeHtml(footer || "")}</div>
+      `;
+
+      panel.querySelector('[data-action="hide-panel"]').addEventListener("click", () => {
+        this.hidePanel(app, id);
+      });
+
+      document.documentElement.appendChild(panel);
+      app.panels.set(id, panel);
+
+      makeDraggable(panel, id, app);
+      makeResizable(panel, id, app);
     },
 
     // createBuiltinPanel — used for built-in panels (e.g. the manager UI).
