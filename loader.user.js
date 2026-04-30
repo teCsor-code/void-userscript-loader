@@ -921,7 +921,7 @@
     },
 
     createMasterPanel(app) {
-      this.createPanel(app, {
+      this.createBuiltinPanel(app, {
         id: `${CONFIG.appId}-manager`,
         icon: "🧩",
         title: CONFIG.title,
@@ -931,7 +931,7 @@
     },
 
     createModulePanel(app, module) {
-      this.createPanel(app, {
+      this.createBuiltinPanel(app, {
         id: module.id,
         icon: module.icon,
         title: module.name,
@@ -1093,8 +1093,8 @@
       panel.classList.toggle("vim-open", isPanelOpen(app, id));
     },
 
-    // createPanel — used for built-in panels (e.g. the manager UI).
-    createPanel(app, { id, icon, title, bodyHtml, footer }) {
+    // createBuiltinPanel — used for built-in panels (e.g. the manager UI).
+    createBuiltinPanel(app, { id, icon, title, bodyHtml, footer }) {
       if (!app.settings.panels[id]) {
         app.settings.panels[id] = {
           enabled: true,
