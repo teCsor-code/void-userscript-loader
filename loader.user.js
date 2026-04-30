@@ -706,4 +706,586 @@
     },
   };
 
+  // ─── STYLES ──────────────────────────────────────────────────────────────────
+  const Styles = {
+    inject() {
+      if (document.getElementById(`${CONFIG.appId}-styles`)) return;
+
+      const style = document.createElement("style");
+      style.id = `${CONFIG.appId}-styles`;
+      style.textContent = `
+        .vim-panel {
+          position: fixed;
+          z-index: 999999;
+          display: none;
+          flex-direction: column;
+          min-width: 260px;
+          min-height: 140px;
+          max-width: calc(100vw - 20px);
+          max-height: calc(100vh - 58px);
+          resize: both;
+          overflow: hidden;
+          background: rgba(8, 10, 15, 0.96);
+          color: #e5e7eb;
+          border: 1px solid rgba(148, 163, 184, 0.38);
+          border-radius: 12px;
+          box-shadow: 0 16px 46px rgba(0, 0, 0, 0.48);
+          font-family: Arial, sans-serif;
+          font-size: 12px;
+          backdrop-filter: blur(6px);
+        }
+
+        .vim-panel.vim-open {
+          display: flex;
+        }
+
+        .vim-header {
+          height: 36px;
+          min-height: 36px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          padding: 0 10px;
+          background: rgba(255, 255, 255, 0.06);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.11);
+          cursor: move;
+          user-select: none;
+          flex: 0 0 auto;
+        }
+
+        .vim-title {
+          font-weight: 800;
+          font-size: 13px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .vim-actions {
+          display: flex;
+          gap: 6px;
+          flex-shrink: 0;
+        }
+
+        .vim-btn {
+          background: rgba(255, 255, 255, 0.08);
+          color: #e5e7eb;
+          border: 1px solid rgba(255, 255, 255, 0.14);
+          border-radius: 7px;
+          padding: 4px 8px;
+          font-size: 11px;
+          cursor: pointer;
+        }
+
+        .vim-btn:hover {
+          background: rgba(255, 255, 255, 0.15);
+        }
+
+        .vim-btn-primary {
+          background: rgba(56, 189, 248, 0.22);
+          border-color: rgba(56, 189, 248, 0.55);
+        }
+
+        .vim-body {
+          flex: 1 1 auto;
+          overflow: auto;
+          padding: 10px;
+        }
+
+        .vim-footer {
+          flex: 0 0 auto;
+          padding: 7px 10px;
+          border-top: 1px solid rgba(255, 255, 255, 0.10);
+          color: rgba(229, 231, 235, 0.65);
+          font-size: 11px;
+        }
+
+        .vim-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          padding: 8px;
+          margin-bottom: 8px;
+          border-radius: 10px;
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .vim-row-main {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+
+        .vim-row-title {
+          font-weight: 800;
+        }
+
+        .vim-muted {
+          color: rgba(229, 231, 235, 0.62);
+        }
+
+        .vim-good {
+          color: #4ade80;
+          font-weight: 800;
+        }
+
+        .vim-switch-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          cursor: pointer;
+          user-select: none;
+        }
+
+        .vim-switch-row input {
+          transform: translateY(1px);
+        }
+
+        .vim-placeholder {
+          padding: 12px;
+          border-radius: 10px;
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          line-height: 1.45;
+        }
+
+        #${CONFIG.appId}-tray {
+          position: fixed;
+          right: 14px;
+          bottom: 14px;
+          z-index: 1000000;
+          display: flex;
+          flex-direction: row-reverse;
+          align-items: center;
+          gap: 8px;
+          pointer-events: auto;
+        }
+
+        .vim-tray-btn {
+          height: 34px;
+          min-width: 34px;
+          max-width: 150px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          padding: 0 10px;
+          background: rgba(8, 10, 15, 0.96);
+          color: #e5e7eb;
+          border: 1px solid rgba(148, 163, 184, 0.45);
+          border-radius: 999px;
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.38);
+          font-family: Arial, sans-serif;
+          font-size: 12px;
+          font-weight: 800;
+          cursor: pointer;
+          white-space: nowrap;
+        }
+
+        .vim-tray-btn:hover {
+          background: rgba(30, 41, 59, 0.98);
+        }
+
+        .vim-tray-btn.vim-active {
+          border-color: rgba(74, 222, 128, 0.7);
+        }
+
+        .vim-tray-label {
+          max-width: 110px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+      `;
+
+      document.documentElement.appendChild(style);
+    },
+  };
+
+  // ─── WINDOW MANAGER ──────────────────────────────────────────────────────────
+  const WindowManager = {
+    init(app) {
+      this.createTray(app);
+      this.createMasterPanel(app);
+    },
+
+    createTray(app) {
+      if (app.tray || !document.documentElement) return;
+
+      const tray = document.createElement("div");
+      tray.id = `${CONFIG.appId}-tray`;
+      document.documentElement.appendChild(tray);
+      app.tray = tray;
+    },
+
+    createMasterPanel(app) {
+      this.createPanel(app, {
+        id: `${CONFIG.appId}-manager`,
+        icon: "🧩",
+        title: CONFIG.title,
+        bodyHtml: "",
+        footer: "Hide sends the whole window to the tray. Modules are managed here.",
+      });
+    },
+
+    createModulePanel(app, module) {
+      this.createPanel(app, {
+        id: module.id,
+        icon: module.icon,
+        title: module.name,
+        bodyHtml: module.render?.(app) || renderPlaceholder(module),
+        footer: module.footer || "Drag the title bar. Resize from the lower-right corner.",
+      });
+    },
+
+    renderAll(app) {
+      this.renderMaster(app);
+      this.renderTray(app);
+      this.applyPanel(app, `${CONFIG.appId}-manager`);
+
+      for (const module of app.modules.values()) {
+        this.applyPanel(app, module.id);
+      }
+    },
+
+    renderMaster(app) {
+      const panel = app.panels.get(`${CONFIG.appId}-manager`);
+      if (!panel) return;
+
+      const body = panel.querySelector(".vim-body");
+      const footer = panel.querySelector(".vim-footer");
+
+      body.innerHTML = `
+        <div class="vim-row">
+          <label class="vim-switch-row">
+            <input type="checkbox" data-setting="open-auto" ${app.settings.openScriptsAutomatically ? "checked" : ""} />
+            <span>Open scripts automatically</span>
+          </label>
+        </div>
+
+        ${[...app.modules.values()].map((module) => renderModuleRow(app, module)).join("")}
+
+        <button type="button" class="vim-btn vim-btn-primary" data-action="run-scripts">Run Scripts</button>
+      `;
+
+      footer.textContent = app.settings.openScriptsAutomatically
+        ? "Auto-open is on. Enabled scripts open on page load."
+        : "Auto-open is off. Enabled scripts stay in the tray until Run Scripts is clicked.";
+
+      body.querySelector('[data-setting="open-auto"]').addEventListener("change", (event) => {
+        app.settings.openScriptsAutomatically = event.target.checked;
+        Storage.save(app.settings);
+        this.renderMaster(app);
+      });
+
+      body.querySelectorAll("[data-module-toggle]").forEach((input) => {
+        input.addEventListener("change", (event) => {
+          this.setModuleEnabled(app, event.target.dataset.moduleToggle, event.target.checked);
+        });
+      });
+
+      body.querySelector('[data-action="run-scripts"]').addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        this.runEnabledModules(app);
+      });
+    },
+
+    renderTray(app) {
+      if (!app.tray) return;
+
+      const items = [
+        {
+          id: `${CONFIG.appId}-manager`,
+          icon: "🧩",
+          label: "Scripts",
+          title: "VoidIdle Scripts Master",
+          open: isPanelOpen(app, `${CONFIG.appId}-manager`),
+        },
+        ...[...app.modules.values()]
+          .filter((module) => getPanelState(app, module.id).enabled)
+          .map((module) => ({
+            id: module.id,
+            icon: module.icon,
+            label: module.shortName || module.name,
+            title: module.name,
+            open: isPanelOpen(app, module.id),
+          })),
+      ];
+
+      app.tray.innerHTML = "";
+
+      for (const item of items) {
+        const button = document.createElement("button");
+        button.className = `vim-tray-btn${item.open ? " vim-active" : ""}`;
+        button.title = item.title;
+        button.innerHTML = `<span>${escapeHtml(item.icon)}</span><span class="vim-tray-label">${escapeHtml(item.label)}</span>`;
+        button.addEventListener("click", () => {
+          if (isPanelOpen(app, item.id)) this.hidePanel(app, item.id);
+          else this.openPanel(app, item.id);
+        });
+        app.tray.appendChild(button);
+      }
+    },
+
+    openPanel(app, id) {
+      const state = getPanelState(app, id);
+      if (!state) return;
+
+      if (id !== `${CONFIG.appId}-manager`) state.enabled = true;
+      state.open = true;
+
+      this.applyPanel(app, id);
+      this.renderMaster(app);
+      this.renderTray(app);
+      Storage.save(app.settings);
+    },
+
+    hidePanel(app, id) {
+      const state = getPanelState(app, id);
+      if (!state) return;
+
+      state.open = false;
+
+      this.applyPanel(app, id);
+      this.renderMaster(app);
+      this.renderTray(app);
+      Storage.save(app.settings);
+    },
+
+    setModuleEnabled(app, id, enabled) {
+      const state = getPanelState(app, id);
+      if (!state) return;
+
+      state.enabled = !!enabled;
+      state.open = !!enabled && !!app.settings.openScriptsAutomatically;
+
+      this.applyPanel(app, id);
+      this.renderMaster(app);
+      this.renderTray(app);
+      Storage.save(app.settings);
+    },
+
+    runEnabledModules(app) {
+      for (const module of app.modules.values()) {
+        const state = getPanelState(app, module.id);
+        if (!state.enabled) continue;
+        state.open = true;
+        this.applyPanel(app, module.id);
+      }
+
+      this.renderMaster(app);
+      this.renderTray(app);
+      Storage.save(app.settings);
+    },
+
+    applyPanel(app, id) {
+      const panel = app.panels.get(id);
+      const state = getPanelState(app, id);
+      if (!panel || !state) return;
+
+      panel.style.width = `${state.width}px`;
+      panel.style.height = `${state.height}px`;
+      panel.style.right = `${state.right}px`;
+      panel.style.bottom = `${state.bottom}px`;
+      panel.classList.toggle("vim-open", isPanelOpen(app, id));
+    },
+
+    // createPanel — used for built-in panels (e.g. the manager UI).
+    createPanel(app, { id, icon, title, bodyHtml, footer }) {
+      if (!app.settings.panels[id]) {
+        app.settings.panels[id] = {
+          enabled: true,
+          open:    false,
+          width:   380,
+          height:  460,
+          right:   16,
+          bottom:  58,
+        };
+      }
+      this.createModulePanel(app, {
+        id,
+        icon:        icon  || '⚙️',
+        name:        title || id,
+        description: '',
+        footer:      footer || '',
+        render:      () => bodyHtml,
+      });
+    },
+
+    // registerModulePanel — called by remote modules via app.ui.registerPanel(config).
+    registerModulePanel(app, moduleId, config) {
+      if (!app.settings.panels[moduleId]) {
+        app.settings.panels[moduleId] = {
+          enabled: true,
+          open:    false,
+          width:   config.width  || 520,
+          height:  config.height || 540,
+          right:   config.right  || 16,
+          bottom:  config.bottom || 58,
+        };
+      }
+      this.createModulePanel(app, {
+        id:          moduleId,
+        icon:        config.icon        || '🔧',
+        name:        config.title       || moduleId,
+        description: config.description || '',
+        footer:      config.footer      || 'Drag title bar · resize from corner.',
+        render:      config.render      || null,
+      });
+    },
+  };
+
+  function renderModuleRow(app, module) {
+    const state = getPanelState(app, module.id);
+
+    if (!state) {
+      return "";
+    }
+
+    const status = !state.enabled ? "Off" : state.open ? "Open" : "In tray";
+    const statusClass = state.enabled ? "vim-good" : "vim-muted";
+
+    return `
+    <div class="vim-row">
+      <div class="vim-row-main">
+        <div class="vim-row-title">${escapeHtml(module.icon)} ${escapeHtml(module.name)}</div>
+        <div class="vim-muted">${escapeHtml(module.description)}</div>
+        <div class="${statusClass}">${status}</div>
+      </div>
+      <label class="vim-switch-row">
+        <input type="checkbox" data-module-toggle="${escapeHtml(module.id)}" ${state.enabled ? "checked" : ""} />
+        <span>Enabled</span>
+      </label>
+    </div>
+  `;
+  }
+
+  function renderPlaceholder(module) {
+    return `
+      <div class="vim-placeholder">
+        <b>${escapeHtml(module.name)}</b><br />
+        ${escapeHtml(module.description)}<br /><br />
+        This module is registered, but no feature logic has been migrated into it yet.
+      </div>
+    `;
+  }
+
+  function getPanelState(app, id) {
+    if (!app?.settings) return null;
+
+    if (!app.settings.panels) {
+      app.settings.panels = {};
+    }
+
+    const defaults = DEFAULT_SETTINGS.panels?.[id] || {
+      enabled: false,
+      open: false,
+      width: 520,
+      height: 420,
+      right: 16,
+      bottom: 58,
+    };
+
+    if (!app.settings.panels[id]) {
+      app.settings.panels[id] = clone(defaults);
+      Storage.save(app.settings);
+    }
+
+    return app.settings.panels[id];
+  }
+
+  function isPanelOpen(app, id) {
+    const state = getPanelState(app, id);
+    if (!state) return false;
+    if (id === `${CONFIG.appId}-manager`) return !!state.open;
+    return !!state.enabled && !!state.open;
+  }
+
+  function savePanelGeometry(app, id) {
+    const panel = app.panels.get(id);
+    const state = getPanelState(app, id);
+    if (!panel || !state || !panel.classList.contains("vim-open")) return;
+
+    const rect = panel.getBoundingClientRect();
+
+    state.width = clamp(Math.round(rect.width), 260, Math.max(260, window.innerWidth - 20));
+    state.height = clamp(Math.round(rect.height), 140, Math.max(140, window.innerHeight - 60));
+    state.right = clamp(Math.round(window.innerWidth - rect.right), 0, Math.max(0, window.innerWidth - 120));
+    state.bottom = clamp(Math.round(window.innerHeight - rect.bottom), 48, Math.max(48, window.innerHeight - 80));
+
+    Storage.save(app.settings);
+  }
+
+  function makeDraggable(panel, id, app) {
+    const header = panel.querySelector(".vim-header");
+    if (!header) return;
+
+    let dragging = false;
+    let startX = 0;
+    let startY = 0;
+    let startRight = 0;
+    let startBottom = 0;
+
+    header.addEventListener("mousedown", (event) => {
+      if (event.target.closest("button, input, label")) return;
+
+      dragging = true;
+      startX = event.clientX;
+      startY = event.clientY;
+
+      const rect = panel.getBoundingClientRect();
+      startRight = window.innerWidth - rect.right;
+      startBottom = window.innerHeight - rect.bottom;
+
+      document.body.style.userSelect = "none";
+      event.preventDefault();
+    });
+
+    window.addEventListener("mousemove", (event) => {
+      if (!dragging) return;
+
+      const dx = event.clientX - startX;
+      const dy = event.clientY - startY;
+
+      panel.style.right = `${Math.max(0, startRight - dx)}px`;
+      panel.style.bottom = `${Math.max(48, startBottom - dy)}px`;
+    });
+
+    window.addEventListener("mouseup", () => {
+      if (!dragging) return;
+      dragging = false;
+      document.body.style.userSelect = "";
+      savePanelGeometry(app, id);
+    });
+  }
+
+  function makeResizable(panel, id, app) {
+    let timer = null;
+
+    const observer = new ResizeObserver(() => {
+      if (!panel.classList.contains("vim-open")) return;
+      clearTimeout(timer);
+      timer = setTimeout(() => savePanelGeometry(app, id), 150);
+    });
+
+    observer.observe(panel);
+  }
+
+  function clamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? "").replace(/[&<>"']/g, (char) => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#039;",
+    }[char]));
+  }
+
 })();
