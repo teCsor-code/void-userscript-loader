@@ -132,6 +132,27 @@
     },
   };
 
-  // (Tasks 4–9 will append more sections here before the closing })(); )
+  // ─── EVENT BUS ──────────────────────────────────────────────────────────────
+  function createEventBus() {
+    const listeners = new Map();
+    return {
+      on(type, handler) {
+        if (!listeners.has(type)) listeners.set(type, new Set());
+        listeners.get(type).add(handler);
+        return () => this.off(type, handler);
+      },
+      off(type, handler) {
+        listeners.get(type)?.delete(handler);
+      },
+      emit(type, payload) {
+        for (const handler of listeners.get(type) || []) {
+          try { handler(payload); }
+          catch (err) {
+            logger.error(`EventBus error in handler for "${type}":`, err.message);
+          }
+        }
+      },
+    };
+  }
 
 })();
