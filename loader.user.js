@@ -1546,7 +1546,9 @@
           registerPanel: (config) =>
             WindowManager.registerModulePanel(app, entry.id, config),
           getPanel: (id) =>
-            document.getElementById(`vim-panel-${id || entry.id}`),
+            app.panels.get(id || entry.id),
+          isPanelEnabled: (id) =>
+            !!(app.settings?.panels?.[id || entry.id]?.enabled),
         },
         meta: {
           id:          entry.id,
