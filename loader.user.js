@@ -909,7 +909,6 @@
     init(app) {
       if (!app.panels) app.panels = new Map();
       this.createTray(app);
-      this.createMasterPanel(app);
     },
 
     createTray(app) {
@@ -1665,7 +1664,7 @@
             panel.classList.add('vim-open');
             if (app.settings.panels[id]) {
               app.settings.panels[id].open = true;
-              PanelPanelStorage.save(app.settings);
+              PanelStorage.save(app.settings);
             }
           }
         });
@@ -1758,7 +1757,7 @@
 
       ManagerUI.init(app);
       WindowManager.renderAll(app);
-      PanelPanelStorage.save(app.settings);
+      PanelStorage.save(app.settings);
 
       app.events.on('loader:complete', () => WindowManager.renderTray(app));
 
