@@ -123,8 +123,8 @@
     load() {
       try {
         const raw = localStorage.getItem(CONFIG.cache.panels);
-        return raw ? deepMerge({ panels: {} }, JSON.parse(raw)) : { panels: {} };
-      } catch { return { panels: {} }; }
+        return raw ? deepMerge({ panels: {}, moduleOrder: {} }, JSON.parse(raw)) : { panels: {}, moduleOrder: {} };
+      } catch { return { panels: {}, moduleOrder: {} }; }
     },
     save(settings) {
       try { localStorage.setItem(CONFIG.cache.panels, JSON.stringify(settings)); }
@@ -850,6 +850,37 @@
           background: rgba(255, 255, 255, 0.05);
           border: 1px solid rgba(255, 255, 255, 0.08);
           line-height: 1.45;
+        }
+
+        .vim-category-header {
+          font-size: 10px;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: .08em;
+          color: rgba(229, 231, 235, 0.45);
+          padding: 4px 4px 4px 2px;
+          margin-top: 8px;
+          margin-bottom: 2px;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .vim-category-header:first-child {
+          margin-top: 0;
+        }
+
+        .vim-btn-reorder {
+          padding: 2px 6px;
+          font-size: 10px;
+          opacity: 0.6;
+        }
+
+        .vim-btn-reorder:hover {
+          opacity: 1;
+        }
+
+        .vim-btn-reorder:disabled {
+          opacity: 0.2;
+          cursor: default;
         }
 
         #${CONFIG.appId}-tray {
@@ -1593,9 +1624,10 @@
     },
 
     _renderBody(app) {
-      const records  = ModuleRegistry.getAll();
-      const manifest = ModuleLoader._loadCachedManifest();
-      const entries  = manifest?.modules || [];
+      const records    = ModuleRegistry.getAll();
+      const manifest   = ModuleLoader._loadCachedManifest();
+      const entries    = manifest?.modules || [];
+      const categories = manifest?.categories || [{ id: 'misc', label: 'Modules' }];
 
       const nLoaded = records.filter(r => r.status === 'loaded').length;
       const nFailed = records.filter(r => r.status === 'failed').length;
@@ -1607,45 +1639,77 @@
         ? '<span style="color:#f59e0b;margin-left:6px;">● Offline (cached)</span>'
         : '';
 
-      const rows = entries.map(entry => {
-        const rec = ModuleRegistry.get(entry.id);
+      const moduleOrder = app.settings.moduleOrder || {};
 
-        if (!rec) {
-          const label = entry.enabled ? 'Loading…' : '⏭ Disabled in manifest';
-          return `<div class="vim-row">
-            <div class="vim-row-main">
-              <div class="vim-row-title">${escapeHtml(entry.icon || '')} ${escapeHtml(entry.name)}</div>
-              <div class="vim-muted">${label}</div>
-            </div>
-          </div>`;
+      const sections = categories.map(cat => {
+        let catEntries = entries.filter(e => (e.category || categories[0].id) === cat.id);
+        if (!catEntries.length) return '';
+
+        // Apply stored order, preserving manifest entries not yet in order.
+        const order = moduleOrder[cat.id];
+        if (order && order.length) {
+          catEntries = [...catEntries].sort((a, b) => {
+            const ai = order.indexOf(a.id);
+            const bi = order.indexOf(b.id);
+            if (ai === -1 && bi === -1) return 0;
+            if (ai === -1) return 1;
+            if (bi === -1) return -1;
+            return ai - bi;
+          });
         }
 
-        const icon  = rec.status === 'loaded' ? '✅' : '❌';
-        const label = rec.status === 'loaded'
-          ? `v${escapeHtml(String(rec.entry.version))}`
-          : escapeHtml(rec.error || 'error');
+        const rows = catEntries.map((entry, idx) => {
+          const rec      = ModuleRegistry.get(entry.id);
+          const isFirst  = idx === 0;
+          const isLast   = idx === catEntries.length - 1;
+          const reorderBtns = `
+            <button class="vim-btn vim-btn-reorder" data-vim-move-up="${escapeHtml(entry.id)}" data-vim-category="${escapeHtml(cat.id)}" ${isFirst ? 'disabled' : ''}>▲</button>
+            <button class="vim-btn vim-btn-reorder" data-vim-move-down="${escapeHtml(entry.id)}" data-vim-category="${escapeHtml(cat.id)}" ${isLast ? 'disabled' : ''}>▼</button>
+          `;
 
-        const actionBtn = rec.status === 'loaded'
-          ? `<button class="vim-btn" data-vim-open="${escapeHtml(entry.id)}">Open</button>`
-          : `<button class="vim-btn" data-vim-details="${escapeHtml(entry.id)}">Details</button>`;
+          if (!rec) {
+            const label = entry.enabled ? 'Loading…' : '⏭ Disabled in manifest';
+            return `<div class="vim-row">
+              <div class="vim-row-main">
+                <div class="vim-row-title">${escapeHtml(entry.icon || '')} ${escapeHtml(entry.name)}</div>
+                <div class="vim-muted">${label}</div>
+              </div>
+              <div class="vim-actions">${reorderBtns}</div>
+            </div>`;
+          }
 
-        return `<div class="vim-row">
-          <div class="vim-row-main">
-            <div class="vim-row-title">${icon} ${escapeHtml(entry.icon || '')} ${escapeHtml(entry.name)}</div>
-            <div class="vim-muted">${label}</div>
-          </div>
-          <div class="vim-actions">
-            ${actionBtn}
-            <button class="vim-btn" data-vim-reload="${escapeHtml(entry.id)}">↺</button>
-          </div>
-        </div>`;
-      });
+          const icon      = rec.status === 'loaded' ? '✅' : '❌';
+          const label     = rec.status === 'loaded'
+            ? `v${escapeHtml(String(rec.entry.version))}`
+            : escapeHtml(rec.error || 'error');
+          const actionBtn = rec.status === 'loaded'
+            ? `<button class="vim-btn" data-vim-open="${escapeHtml(entry.id)}">Open</button>`
+            : `<button class="vim-btn" data-vim-details="${escapeHtml(entry.id)}">Details</button>`;
+
+          return `<div class="vim-row">
+            <div class="vim-row-main">
+              <div class="vim-row-title">${icon} ${escapeHtml(entry.icon || '')} ${escapeHtml(entry.name)}</div>
+              <div class="vim-muted">${label}</div>
+            </div>
+            <div class="vim-actions">
+              ${reorderBtns}
+              ${actionBtn}
+              <button class="vim-btn" data-vim-reload="${escapeHtml(entry.id)}">↺</button>
+            </div>
+          </div>`;
+        }).join('');
+
+        return `
+          <div class="vim-category-header">${escapeHtml(cat.label)}</div>
+          ${rows}
+        `;
+      }).join('');
 
       return `
         <div style="margin-bottom:8px;color:rgba(229,231,235,0.7);font-size:11px;">
           ${escapeHtml(statusText)}${offlineBadge}
         </div>
-        ${rows.join('')}
+        ${sections}
         <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">
           <button class="vim-btn vim-btn-primary" data-vim-reload-all>↺ Reload All</button>
           <button class="vim-btn" data-vim-toggle-log>▾ Debug Log</button>
@@ -1657,7 +1721,38 @@
       `;
     },
 
+    _moveModule(app, catId, moduleId, direction) {
+      const manifest   = ModuleLoader._loadCachedManifest();
+      const catEntries = (manifest?.modules || []).filter(e => (e.category || (manifest?.categories?.[0]?.id ?? 'misc')) === catId);
+
+      if (!app.settings.moduleOrder) app.settings.moduleOrder = {};
+      const stored  = app.settings.moduleOrder[catId] || catEntries.map(e => e.id);
+      const current = catEntries.map(e => stored.includes(e.id) ? e.id : e.id);
+
+      const idx = current.indexOf(moduleId);
+      if (idx === -1) return;
+      const newIdx = idx + direction;
+      if (newIdx < 0 || newIdx >= current.length) return;
+
+      [current[idx], current[newIdx]] = [current[newIdx], current[idx]];
+      app.settings.moduleOrder[catId] = current;
+      PanelStorage.save(app.settings);
+      this._refresh(app);
+    },
+
     _attachHandlers(app, body) {
+      body.querySelectorAll('[data-vim-move-up]').forEach(btn => {
+        btn.addEventListener('click', () =>
+          this._moveModule(app, btn.dataset.vimCategory, btn.dataset.vimMoveUp, -1)
+        );
+      });
+
+      body.querySelectorAll('[data-vim-move-down]').forEach(btn => {
+        btn.addEventListener('click', () =>
+          this._moveModule(app, btn.dataset.vimCategory, btn.dataset.vimMoveDown, 1)
+        );
+      });
+
       body.querySelectorAll('[data-vim-open]').forEach(btn => {
         btn.addEventListener('click', () => {
           const id    = btn.dataset.vimOpen;
