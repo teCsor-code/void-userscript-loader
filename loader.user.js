@@ -17,7 +17,7 @@
   const CONFIG = Object.freeze({
     appId:       'voididle-loader',
     version:     '2026-04-30.1',
-    manifestUrl: 'https://raw.githubusercontent.com/AimForNuts/void-userscript-loader/main/manifest.json',
+    manifestUrl: 'https://raw.githubusercontent.com/teCsor-code/void-userscript-loader/main/manifest.json',
     logPrefix:   '[VoidIdle]',
     socketMessageTypes: new Set(['fullState', 'partyTick', 'auraRegen', 'auraXpGain']),
     cache: {
