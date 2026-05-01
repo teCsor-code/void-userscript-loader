@@ -977,7 +977,7 @@
 
       body.querySelector('[data-setting="open-auto"]').addEventListener("change", (event) => {
         app.settings.openScriptsAutomatically = event.target.checked;
-        Storage.save(app.settings);
+        PanelStorage.save(app.settings);
         this.renderMaster(app);
       });
 
@@ -1041,7 +1041,7 @@
       this.applyPanel(app, id);
       this.renderMaster(app);
       this.renderTray(app);
-      Storage.save(app.settings);
+      PanelStorage.save(app.settings);
     },
 
     hidePanel(app, id) {
@@ -1053,7 +1053,7 @@
       this.applyPanel(app, id);
       this.renderMaster(app);
       this.renderTray(app);
-      Storage.save(app.settings);
+      PanelStorage.save(app.settings);
     },
 
     setModuleEnabled(app, id, enabled) {
@@ -1066,7 +1066,7 @@
       this.applyPanel(app, id);
       this.renderMaster(app);
       this.renderTray(app);
-      Storage.save(app.settings);
+      PanelStorage.save(app.settings);
     },
 
     runEnabledModules(app) {
@@ -1079,7 +1079,7 @@
 
       this.renderMaster(app);
       this.renderTray(app);
-      Storage.save(app.settings);
+      PanelStorage.save(app.settings);
     },
 
     applyPanel(app, id) {
@@ -1227,7 +1227,7 @@
 
     if (!app.settings.panels[id]) {
       app.settings.panels[id] = clone(defaults);
-      Storage.save(app.settings);
+      PanelStorage.save(app.settings);
     }
 
     return app.settings.panels[id];
@@ -1252,7 +1252,7 @@
     state.right = clamp(Math.round(window.innerWidth - rect.right), 0, Math.max(0, window.innerWidth - 120));
     state.bottom = clamp(Math.round(window.innerHeight - rect.bottom), 48, Math.max(48, window.innerHeight - 80));
 
-    Storage.save(app.settings);
+    PanelStorage.save(app.settings);
   }
 
   function makeDraggable(panel, id, app) {
@@ -1665,7 +1665,7 @@
             panel.classList.add('vim-open');
             if (app.settings.panels[id]) {
               app.settings.panels[id].open = true;
-              PanelStorage.save(app.settings);
+              PanelPanelStorage.save(app.settings);
             }
           }
         });
@@ -1758,7 +1758,7 @@
 
       ManagerUI.init(app);
       WindowManager.renderAll(app);
-      PanelStorage.save(app.settings);
+      PanelPanelStorage.save(app.settings);
 
       app.events.on('loader:complete', () => WindowManager.renderTray(app));
 
