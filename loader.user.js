@@ -1314,16 +1314,6 @@
     return Math.max(min, Math.min(max, value));
   }
 
-  function escapeHtml(value) {
-    return String(value ?? "").replace(/[&<>"']/g, (char) => ({
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#039;",
-    }[char]));
-  }
-
   // ─── MODULE REGISTRY ────────────────────────────────────────────────────────
   // Tracks load state of every module the loader attempted to initialize.
   const ModuleRegistry = {
@@ -1579,5 +1569,209 @@
       old.slice(0, -1).forEach(k => localStorage.removeItem(k));
     },
   };
+
+  // ─── MANAGER UI ─────────────────────────────────────────────────────────────
+  const ManagerUI = {
+    _bodyId: `${CONFIG.appId}-manager-body`,
+
+    init(app) {
+      app.events.on('loader:manifest',        () => this._refresh(app));
+      app.events.on('loader:module:loaded',   () => this._refresh(app));
+      app.events.on('loader:module:failed',   () => this._refresh(app));
+      app.events.on('loader:module:skipped',  () => this._refresh(app));
+      app.events.on('loader:module:reloaded', () => this._refresh(app));
+      app.events.on('loader:complete',        () => this._refresh(app));
+      app.events.on('loader:error',           () => this._refresh(app));
+    },
+
+    _refresh(app) {
+      const body = document.getElementById(this._bodyId);
+      if (!body) return;
+      body.innerHTML = this._renderBody(app);
+      this._attachHandlers(app, body);
+    },
+
+    _renderBody(app) {
+      const records  = ModuleRegistry.getAll();
+      const manifest = ModuleLoader._loadCachedManifest();
+      const entries  = manifest?.modules || [];
+
+      const nLoaded = records.filter(r => r.status === 'loaded').length;
+      const nFailed = records.filter(r => r.status === 'failed').length;
+      const statusText = records.length === 0
+        ? 'Loading modules…'
+        : `${nLoaded} loaded${nFailed ? ` / ${nFailed} ❌` : ''}`;
+
+      const offlineBadge = ModuleLoader._offline
+        ? '<span style="color:#f59e0b;margin-left:6px;">● Offline (cached)</span>'
+        : '';
+
+      const rows = entries.map(entry => {
+        const rec = ModuleRegistry.get(entry.id);
+
+        if (!rec) {
+          const label = entry.enabled ? 'Loading…' : '⏭ Disabled in manifest';
+          return `<div class="vim-row">
+            <div class="vim-row-main">
+              <div class="vim-row-title">${escapeHtml(entry.icon || '')} ${escapeHtml(entry.name)}</div>
+              <div class="vim-muted">${label}</div>
+            </div>
+          </div>`;
+        }
+
+        const icon  = rec.status === 'loaded' ? '✅' : '❌';
+        const label = rec.status === 'loaded'
+          ? `v${escapeHtml(String(rec.entry.version))}`
+          : escapeHtml(rec.error || 'error');
+
+        const actionBtn = rec.status === 'loaded'
+          ? `<button class="vim-btn" data-vim-open="${escapeHtml(entry.id)}">Open</button>`
+          : `<button class="vim-btn" data-vim-details="${escapeHtml(entry.id)}">Details</button>`;
+
+        return `<div class="vim-row">
+          <div class="vim-row-main">
+            <div class="vim-row-title">${icon} ${escapeHtml(entry.icon || '')} ${escapeHtml(entry.name)}</div>
+            <div class="vim-muted">${label}</div>
+          </div>
+          <div class="vim-actions">
+            ${actionBtn}
+            <button class="vim-btn" data-vim-reload="${escapeHtml(entry.id)}">↺</button>
+          </div>
+        </div>`;
+      });
+
+      return `
+        <div style="margin-bottom:8px;color:rgba(229,231,235,0.7);font-size:11px;">
+          ${escapeHtml(statusText)}${offlineBadge}
+        </div>
+        ${rows.join('')}
+        <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="vim-btn vim-btn-primary" data-vim-reload-all>↺ Reload All</button>
+          <button class="vim-btn" data-vim-toggle-log>▾ Debug Log</button>
+        </div>
+        <div id="${CONFIG.appId}-debug-log"
+             style="display:none;margin-top:8px;max-height:180px;overflow-y:auto;
+                    font-size:10px;font-family:monospace;background:rgba(0,0,0,0.32);
+                    padding:6px;border-radius:6px;white-space:pre-wrap;"></div>
+      `;
+    },
+
+    _attachHandlers(app, body) {
+      body.querySelectorAll('[data-vim-open]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id    = btn.dataset.vimOpen;
+          const panel = document.getElementById(`vim-panel-${id}`);
+          if (panel) {
+            panel.classList.add('vim-open');
+            if (app.settings.panels[id]) {
+              app.settings.panels[id].open = true;
+              PanelStorage.save(app.settings);
+            }
+          }
+        });
+      });
+
+      body.querySelectorAll('[data-vim-details]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const rec = ModuleRegistry.get(btn.dataset.vimDetails);
+          if (rec?.error) alert(`[${btn.dataset.vimDetails}] ${rec.error}`);
+        });
+      });
+
+      body.querySelectorAll('[data-vim-reload]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = btn.dataset.vimReload;
+          btn.disabled = true;
+          btn.textContent = '…';
+          try {
+            await ModuleLoader.reload(app, id);
+          } finally {
+            btn.disabled = false;
+            btn.textContent = '↺';
+          }
+        });
+      });
+
+      body.querySelector('[data-vim-reload-all]')?.addEventListener('click', async () => {
+        const manifest = ModuleLoader._loadCachedManifest();
+        if (!manifest) return;
+        for (const entry of manifest.modules) {
+          try { await ModuleLoader.reload(app, entry.id); } catch { /* isolated */ }
+        }
+      });
+
+      body.querySelector('[data-vim-toggle-log]')?.addEventListener('click', () => {
+        const logEl = document.getElementById(`${CONFIG.appId}-debug-log`);
+        if (!logEl) return;
+        const showing = logEl.style.display !== 'none';
+        logEl.style.display = showing ? 'none' : 'block';
+        if (!showing) {
+          logEl.innerHTML = logger.getLog()
+            .map(e => {
+              const color = e.level === 'error' ? '#f87171'
+                : e.level === 'warn'  ? '#fbbf24'
+                : '#9ca3af';
+              const time = new Date(e.ts).toLocaleTimeString();
+              return `<div style="color:${color}">${escapeHtml(time)} ${escapeHtml(e.line)}</div>`;
+            })
+            .join('');
+          logEl.scrollTop = logEl.scrollHeight;
+        }
+      });
+    },
+  };
+
+  // ─── APP FACTORY ────────────────────────────────────────────────────────────
+  function createApp() {
+    const settings = PanelStorage.load();
+    const events   = createEventBus();
+    return {
+      events,
+      settings,
+      socket: SocketCore,
+      relay:  RelayCore,
+      config: CONFIG,
+      logger,
+      modules: new Map(),
+    };
+  }
+
+  // ─── BOOTSTRAP ──────────────────────────────────────────────────────────────
+  (function bootstrap() {
+    // Phase 1 — synchronous. WebSocket hook must be installed before any await.
+    window.VoidIdleModules = window.VoidIdleModules || {};
+    const app = createApp();
+    app.socket.init(app);
+
+    // Phase 2 — async. Runs after the DOM is available.
+    function onReady() {
+      Styles.inject();
+      WindowManager.init(app);
+
+      WindowManager.createBuiltinPanel(app, {
+        id:       `${CONFIG.appId}-manager`,
+        icon:     '⚙️',
+        title:    `VoidIdle Loader v${CONFIG.version}`,
+        bodyHtml: `<div id="${CONFIG.appId}-manager-body">Loading modules…</div>`,
+        footer:   'Remote modules loaded from manifest.json',
+      });
+
+      ManagerUI.init(app);
+      WindowManager.renderAll(app);
+      PanelStorage.save(app.settings);
+
+      app.events.on('loader:complete', () => WindowManager.renderTray(app));
+
+      ModuleLoader.start(app).catch(err =>
+        logger.error('ModuleLoader.start threw unexpectedly:', err.message)
+      );
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', onReady, { once: true });
+    } else {
+      onReady();
+    }
+  })();
 
 })();
