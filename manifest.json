@@ -78,7 +78,7 @@
       "icon": "⚡",
       "description": "Stats, DPS, gear comparison, roll quality, multi-filter scoring.",
       "url": "https://raw.githubusercontent.com/teCsor-code/voididle-loot-helper/main/loot-helper.module.js",
-      "version": "8.19.0",
+      "version": "8.20.0",
       "category": "fighter",
       "enabled": true,
       "dependencies": ["core"]
