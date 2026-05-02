@@ -82,8 +82,8 @@
       "category": "gather",
       "enabled": true,
       "dependencies": ["core"]
-    },
-        {
+   },
+    {
       "id": "loot-helper",
       "name": "⚡ Loot Helper",
       "icon": "⚡",
